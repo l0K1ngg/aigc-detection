@@ -1,0 +1,6 @@
+# 排除前端单文件页面的语言统计权重
+static/* linguist-vendored
+*.html linguist-detectable=false
+
+# 确保文档与配置不干扰主语言比例
+docs/* linguist-documentation
