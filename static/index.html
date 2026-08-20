@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIGC Trace Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EDF1F4;
+  --paper-2:#F7F9FB;
+  --grid:#D6DEE4;
+  --rule:#C2CDD6;
+  --ink:#16232B;
+  --ink-2:#5B6B76;
+  --ink-3:#8798A3;
+  --trace:#1B4C8C;
+  --trace-fill:#1B4C8C1A;
+  --amber:#9E6712;
+  --amber-fill:#B0741A24;
+  --quiet-fill:#5B6B7614;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;
+  font-family:var(--sans);
+  font-weight:400;
+  color:var(--ink);
+  background-color:var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:28px 28px;
+  background-position:-1px -1px;
+  line-height:1.5;
+  font-size:14px;
+}
+.sheet{
+  max-width:780px;
+  margin:0 auto;
+  padding:0 20px 64px;
+}
+
+/* ---------- Header ---------- */
+header{padding:48px 0 24px}
+.eyebrow{
+  font-family:var(--mono);
+  font-size:11px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--ink-2);
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 14px;
+  align-items:center;
+  margin-bottom:16px;
+}
+.eyebrow span:not(:last-child)::after{
+  content:"";
+  display:inline-block;
+  width:1px;height:9px;
+  background:var(--rule);
+  margin-left:14px;
+  vertical-align:-1px;
+}
+h1{
+  font-family:var(--mono);
+  font-weight:500;
+  font-size:clamp(24px,4.5vw,34px);
+  letter-spacing:-.02em;
+  line-height:1.15;
+  margin:0 0 12px;
+}
+.lede{
+  max-width:56ch;
+  color:var(--ink-2);
+  margin:0;
+}
+.lede strong{color:var(--ink);font-weight:600}
+
+/* ---------- Status ---------- */
+.status{
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--ink-2);
+  border-top:1px solid var(--rule);
+  border-bottom:1px solid var(--rule);
+  padding:8px 0;
+  margin:24px 0 0;
+  display:flex;
+  flex-wrap:wrap;
+  gap:4px 24px;
+}
+.status b{font-weight:500;color:var(--ink)}
+.dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  background:var(--ink-3);margin-right:7px;vertical-align:1px;
+}
+.dot.on{background:var(--trace)}
+.dot.off{background:var(--amber)}
+
+/* ---------- Dropzone ---------- */
+.drop{
+  margin:28px 0 0;
+  border:1px dashed var(--rule);
+  background:var(--paper-2);
+  padding:36px 20px;
+  text-align:center;
+  cursor:pointer;
+  transition:border-color .16s,background .16s;
+}
+.drop:hover,.drop:focus-visible{border-color:var(--trace);background:#fff}
+.drop:focus-visible{outline:2px solid var(--trace);outline-offset:2px}
+.drop.over{border-color:var(--trace);border-style:solid;background:#fff}
+.drop h2{
+  font-family:var(--mono);font-weight:500;font-size:14px;
+  margin:0 0 6px;letter-spacing:-.01em;
+}
+.drop p{margin:0;font-size:12.5px;color:var(--ink-2)}
+.drop kbd{
+  font-family:var(--mono);font-size:11px;
+  border:1px solid var(--rule);border-bottom-width:2px;
+  padding:1px 5px;background:var(--paper);
+}
+
+/* ---------- Card ---------- */
+.card{
+  margin-top:24px;
+  background:var(--paper-2);
+  border:1px solid var(--rule);
+  padding:20px;
+}
+.card-head{
+  display:flex;gap:18px;align-items:flex-start;
+  padding-bottom:18px;border-bottom:1px solid var(--rule);
+}
+.thumb-wrap{flex:0 0 auto;position:relative;width:88px;height:88px;background:var(--grid)}
+.thumb-wrap img{width:100%;height:100%;object-fit:contain;display:block}
+.crop-box{
+  position:absolute;border:1px solid var(--trace);
+  box-shadow:0 0 0 9999px rgba(22,35,43,.34);
+  pointer-events:none;
+}
+.crop-cap{
+  font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  margin-top:4px;text-align:center;letter-spacing:.02em;
+}
+.head-text{min-width:0;flex:1}
+.filename{
+  font-family:var(--mono);font-size:12px;color:var(--ink-2);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:6px;
+}
+.verdict{
+  font-family:var(--mono);font-weight:600;
+  font-size:clamp(16px,3vw,20px);
+  letter-spacing:-.015em;line-height:1.25;margin:0;
+}
+.verdict.generated{color:var(--trace)}
+.verdict.uncertain{color:var(--amber)}
+.verdict.quiet{color:var(--ink-2)}
+.verdict-sub{font-family:var(--sans);font-size:12.5px;color:var(--ink-2);margin:4px 0 0}
+
+/* ---------- Calibration Gauge ---------- */
+.scale{margin:24px 0 0}
+.scale-title{
+  font-family:var(--mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:24px;
+}
+.track{position:relative;height:32px}
+.bands{position:absolute;inset:0;display:flex;border:1px solid var(--rule)}
+.band{height:100%;position:relative}
+.band.b-quiet{background:var(--quiet-fill)}
+.band.b-unc{background:var(--amber-fill);border-left:1px solid var(--amber);border-right:1px solid var(--trace)}
+.band.b-gen{background:var(--trace-fill)}
+.band-label{
+  position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;
+  text-align:center;color:var(--ink-2);
+  overflow:hidden;white-space:nowrap;padding:0 3px;
+}
+.thr{
+  position:absolute;top:-20px;transform:translateX(-50%);
+  font-family:var(--mono);font-size:10px;color:var(--ink-2);white-space:nowrap;
+}
+.thr i{display:block;width:1px;height:8px;background:var(--rule);margin:2px auto 0}
+.needle{
+  position:absolute;top:-3px;bottom:-3px;width:2px;
+  background:var(--ink);transform:translateX(-1px);
+  transition:left .5s cubic-bezier(.22,.61,.36,1);
+}
+.needle::after{
+  content:"";position:absolute;left:50%;top:-6px;transform:translateX(-50%);
+  border-left:5px solid transparent;border-right:5px solid transparent;
+  border-top:6px solid var(--ink);
+}
+.needle-val{
+  position:absolute;top:36px;transform:translateX(-50%);
+  font-family:var(--mono);font-size:12px;font-weight:600;white-space:nowrap;
+  transition:left .5s cubic-bezier(.22,.61,.36,1);
+}
+.axis{
+  position:relative;height:14px;margin-top:22px;
+  font-family:var(--mono);font-size:9.5px;color:var(--ink-3);
+}
+.axis span{position:absolute;transform:translateX(-50%)}
+
+/* ---------- Metrics Grid ---------- */
+.data{
+  margin-top:24px;border-top:1px solid var(--rule);
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));
+}
+.cell{padding:10px 12px 10px 0;border-bottom:1px solid var(--rule)}
+.cell dt{
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-3);margin-bottom:2px;
+}
+.cell dd{margin:0;font-family:var(--mono);font-size:12.5px;color:var(--ink)}
+.cell dd small{color:var(--ink-2);font-size:10.5px}
+
+/* ---------- Diagnostics Note ---------- */
+.caveat{
+  margin-top:18px;padding:12px 14px;
+  background:#fff;border:1px solid var(--rule);
+  border-left:2px solid var(--amber);
+}
+.caveat h3{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  margin:0 0 4px;color:var(--amber);font-weight:600;
+}
+.caveat p{margin:0;font-size:12px;color:var(--ink-2)}
+
+/* ---------- States ---------- */
+.pending{
+  margin-top:24px;border:1px solid var(--rule);background:var(--paper-2);
+  padding:16px 20px;font-family:var(--mono);font-size:12px;color:var(--ink-2);
+  position:relative;overflow:hidden;
+}
+.pending::after{
+  content:"";position:absolute;left:0;bottom:0;height:2px;width:34%;
+  background:var(--trace);animation:sweep 1.1s ease-in-out infinite;
+}
+@keyframes sweep{0%{left:-34%}100%{left:100%}}
+.error{
+  margin-top:24px;border:1px solid var(--rule);border-left:2px solid var(--amber);
+  background:#fff;padding:14px 16px;
+}
+.error h3{font-family:var(--mono);font-size:11.5px;margin:0 0 4px;color:var(--amber)}
+.error p{margin:0;font-size:12.5px;color:var(--ink-2)}
+.error code{font-family:var(--mono);font-size:11px}
+
+/* ---------- Footer ---------- */
+footer{
+  margin-top:48px;padding-top:20px;border-top:1px solid var(--rule);
+  font-size:12px;color:var(--ink-2);
+}
+footer a{color:var(--trace);text-decoration:none;border-bottom:1px solid var(--trace)}
+footer a:hover{background:var(--trace-fill)}
+.fine{margin:0;font-size:11px;color:var(--ink-3);font-family:var(--mono);line-height:1.6}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important}
+}
+@media (max-width:520px){
+  .card-head{flex-direction:column;gap:12px}
+  .band-label{font-size:0}
+}
+</style>
+</head>
+<body>
+<div class="sheet">
+
+<header>
+  <div class="eyebrow">
+    <span>Residual Stream</span><span>Stage A · Single Stream</span><span>fp32</span>
+  </div>
+  <h1>AIGC Trace Detector</h1>
+  <p class="lede">Inference engine for high-frequency generative artifacts. Does <strong>not verify authenticity</strong> — absence of detected traces is not proof of real capture[cite: 3].</p>
+  <div class="status" id="status">
+    <span><span class="dot" id="dot"></span><b id="st-state">Connecting</b></span>
+    <span>Tier <b id="st-tier">—</b></span>
+    <span>Bounds <b id="st-thr">—</b></span>
+  </div>
+</header>
+
+<main>
+  <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload image">
+    <h2>Drop image here or click to browse</h2>
+    <p>Paste from clipboard <kbd>Ctrl</kbd>+<kbd>V</kbd> · JPEG / PNG / WebP / BMP / TIFF · Max 10 MB</p>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+  </div>
+  <div id="out"></div>
+</main>
+
+<footer>
+  <p class="fine">
+    Artifact metadata: <a href="/v1/model-card">model card</a> · API: <code>POST /v1/detect</code>[cite: 1, 3]<br>
+    Thresholds calibrated on dev split (α = 1%); evaluation subsets excluded from calibration[cite: 2, 3].
+  </p>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var CFG = {t_low:0.3936, t_high:0.6389, tier:"—", ready:false};
+  var MAX_BYTES = 10*1024*1024;
+  var CROP = 224, RESIZE = 256;
+
+  var $ = function(id){ return document.getElementById(id); };
+  var drop = $("drop"), fileInput = $("file"), out = $("out");
+
+  var VERDICT = {
+    generated: {
+      cls:"generated", 
+      label:"GENERATED",
+      sub:"Generation traces detected above decision boundary."
+    },
+    uncertain: {
+      cls:"uncertain", 
+      label:"UNCERTAIN",
+      sub:"Score falls within calibrated uncertainty interval."
+    },
+    no_traces_detected: {
+      cls:"quiet", 
+      label:"NO TRACES DETECTED",
+      sub:"No known generator artifacts found. Not proof of authenticity."
+    }
+  };
+
+  var ERRMSG = {
+    DECODE_FAILED:"Unable to decode image stream.",
+    UNSUPPORTED_FORMAT:"Unsupported image format.",
+    PAYLOAD_TOO_LARGE:"Payload exceeds 10 MB limit.",
+    TOO_MANY_PIXELS:"Pixel count exceeds processing threshold.",
+    IMAGE_TOO_SMALL:"Minimum dimension below 32 px.",
+    QUEUE_FULL:"Inference queue full. Retry shortly.",
+    MODEL_NOT_READY:"Inference session unavailable.",
+    INTERNAL:"Processing error."
+  };
+
+  fetch("/readyz")
+  .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+  .then(function(res){
+    if(res.ok){
+      CFG.ready = true;
+      var t = res.j.thresholds || {};
+      var tier = (t.tiers && t.tiers["1pct"]) ? t.tiers["1pct"] : t;
+      if(typeof tier.t_low === "number") CFG.t_low = tier.t_low;
+      if(typeof tier.t_high === "number") CFG.t_high = tier.t_high;
+      CFG.tier = tier.tier || "1pct";
+      $("dot").className = "dot on";
+      $("st-state").textContent = "Ready";
+    } else {
+      $("dot").className = "dot off";
+      $("st-state").textContent = "Unavailable";
+    }
+  })
+  .catch(function(){
+    $("dot").className = "dot off";
+    $("st-state").textContent = "Offline";
+  })
+  .then(function(){
+    $("st-tier").textContent = CFG.tier;
+    $("st-thr").textContent = CFG.t_low.toFixed(4) + " / " + CFG.t_high.toFixed(4);
+  });
+
+  drop.addEventListener("click", function(){ fileInput.click(); });
+  drop.addEventListener("keydown", function(e){
+    if(e.key === "Enter" || e.key === " "){ e.preventDefault(); fileInput.click(); }
+  });
+  fileInput.addEventListener("change", function(){
+    handle(Array.prototype.slice.call(fileInput.files));
+    fileInput.value = "";
+  });
+  ["dragenter","dragover"].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.add("over"); });
+  });
+  ["dragleave","drop"].forEach(function(ev){
+    drop.addEventListener(ev, function(e){ e.preventDefault(); drop.classList.remove("over"); });
+  });
+  drop.addEventListener("drop", function(e){
+    var fs = e.dataTransfer && e.dataTransfer.files;
+    if(fs && fs.length) handle(Array.prototype.slice.call(fs));
+  });
+  document.addEventListener("paste", function(e){
+    var items = e.clipboardData && e.clipboardData.items;
+    if(!items) return;
+    var picked = [];
+    for(var i=0;i<items.length;i++){
+      if(items[i].type && items[i].type.indexOf("image/") === 0){
+        var f = items[i].getAsFile();
+        if(f) picked.push(f);
+      }
+    }
+    if(picked.length) handle(picked);
+  });
+
+  function handle(files){
+    files.filter(function(f){ return f && f.size > 0; }).forEach(send);
+  }
+
+  function send(file){
+    var slot = document.createElement("div");
+    slot.className = "pending";
+    slot.textContent = "Analyzing " + file.name + "…";
+    out.insertBefore(slot, out.firstChild);
+
+    if(file.size > MAX_BYTES){
+      renderError(slot, "PAYLOAD_TOO_LARGE", file.name);
+      return;
+    }
+
+    var thumbURL = URL.createObjectURL(file);
+
+    fetch("/v1/detect", {
+      method:"POST",
+      headers:{"Content-Type":"application/octet-stream"},
+      body:file
+    })
+    .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+    .then(function(res){
+      if(!res.ok){
+        var code = (res.j && res.j.code) || "INTERNAL";
+        renderError(slot, code, file.name);
+        URL.revokeObjectURL(thumbURL);
+        return;
+      }
+      renderResult(slot, res.j, file, thumbURL);
+    })
+    .catch(function(){
+      renderError(slot, "INTERNAL", file.name);
+      URL.revokeObjectURL(thumbURL);
+    });
+  }
+
+  function renderError(slot, code, name){
+    var el = document.createElement("div");
+    el.className = "error";
+    var msg = ERRMSG[code] || "Request failed.";
+    el.innerHTML = '<h3>Execution Error</h3><p></p><p style="margin-top:6px"><code></code></p>';
+    el.querySelector("p").textContent = msg;
+    el.querySelector("code").textContent = name + " · " + code;
+    slot.parentNode.replaceChild(el, slot);
+  }
+
+  function pct(x){ return (Math.max(0, Math.min(1, x)) * 100).toFixed(2) + "%"; }
+
+  function renderResult(slot, r, file, thumbURL){
+    var v = VERDICT[r.verdict] || VERDICT.uncertain;
+    var lo = (r.thresholds && r.thresholds.t_low) || CFG.t_low;
+    var hi = (r.thresholds && r.thresholds.t_high) || CFG.t_high;
+    var t = r.timing_ms || {};
+    var p = r.preprocess || {};
+
+    var card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML =
+      '<div class="card-head">' +
+        '<div>' +
+          '<div class="thumb-wrap"><img alt=""><div class="crop-box"></div></div>' +
+          '<div class="crop-cap">224x224 crop</div>' +
+        '</div>' +
+        '<div class="head-text">' +
+          '<div class="filename"></div>' +
+          '<p class="verdict"></p>' +
+          '<p class="verdict-sub"></p>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="scale">' +
+        '<div class="scale-title">Calibrated Posterior Scale</div>' +
+        '<div class="track">' +
+          '<div class="bands">' +
+            '<div class="band b-quiet"><span class="band-label">NO TRACES</span></div>' +
+            '<div class="band b-unc"><span class="band-label">UNCERTAIN</span></div>' +
+            '<div class="band b-gen"><span class="band-label">GENERATED</span></div>' +
+          '</div>' +
+          '<div class="thr t-lo"></div>' +
+          '<div class="thr t-hi"></div>' +
+          '<div class="needle"></div>' +
+          '<div class="needle-val"></div>' +
+        '</div>' +
+        '<div class="axis">' +
+          '<span style="left:0">0</span><span style="left:25%">.25</span>' +
+          '<span style="left:50%">.50</span><span style="left:75%">.75</span>' +
+          '<span style="left:100%">1</span>' +
+        '</div>' +
+      '</div>' +
+
+      '<dl class="data"></dl>';
+
+    var img = card.querySelector(".thumb-wrap img");
+    img.src = thumbURL;
+    img.alt = file.name;
+    img.addEventListener("load", function(){
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if(!w || !h) return;
+      var f = CROP / RESIZE;
+      var shortFrac = Math.min(1, f);
+      var longFrac = Math.min(1, f * (Math.min(w,h) / Math.max(w,h)));
+      var fw = (w <= h) ? shortFrac : longFrac;
+      var fh = (h <= w) ? shortFrac : longFrac;
+      var box = 88, ar = w / h;
+      var dw = ar >= 1 ? box : box * ar;
+      var dh = ar >= 1 ? box / ar : box;
+      var ox = (box - dw) / 2, oy = (box - dh) / 2;
+      var cb = card.querySelector(".crop-box");
+      cb.style.left   = (ox + dw * (1 - fw) / 2) + "px";
+      cb.style.top    = (oy + dh * (1 - fh) / 2) + "px";
+      cb.style.width  = (dw * fw) + "px";
+      cb.style.height = (dh * fh) + "px";
+      URL.revokeObjectURL(thumbURL);
+    });
+
+    card.querySelector(".filename").textContent =
+      file.name + " · " + (file.size/1024).toFixed(0) + " KB";
+    var vEl = card.querySelector(".verdict");
+    vEl.className = "verdict " + v.cls;
+    vEl.textContent = v.label;
+    card.querySelector(".verdict-sub").textContent = v.sub;
+
+    var bands = card.querySelectorAll(".band");
+    bands[0].style.width = pct(lo);
+    bands[1].style.width = pct(hi - lo);
+    bands[2].style.width = pct(1 - hi);
+
+    var tl = card.querySelector(".t-lo"), th = card.querySelector(".t-hi");
+    tl.innerHTML = "<span></span><i></i>";
+    tl.querySelector("span").textContent = lo.toFixed(4);
+    tl.style.left = pct(lo);
+    th.innerHTML = "<span></span><i></i>";
+    th.querySelector("span").textContent = hi.toFixed(4);
+    th.style.left = pct(hi);
+
+    var needle = card.querySelector(".needle");
+    var nval = card.querySelector(".needle-val");
+    nval.textContent = Number(r.score).toFixed(4);
+    needle.style.left = "0%";
+    nval.style.left = "0%";
+    requestAnimationFrame(function(){
+      requestAnimationFrame(function(){
+        needle.style.left = pct(r.score);
+        nval.style.left = pct(r.score);
+      });
+    });
+
+    var cells = [
+      ["P(Generated)", Number(r.score).toFixed(6), ""],
+      ["Min Edge", (p.source_min_edge != null ? p.source_min_edge + " px" : "—"),
+        p.upscaled ? "upscaled" : "native"],
+      ["Preprocess", (t.preprocess != null ? t.preprocess + " ms" : "—"), ""],
+      ["Inference", (t.inference != null ? t.inference + " ms" : "—"), ""],
+      ["Total", (t.total != null ? t.total + " ms" : "—"),
+        (t.queue_wait != null ? "queue " + t.queue_wait + " ms" : "")],
+      ["Precision", (r.model && r.model.precision) || "fp32", ""]
+    ];
+    var dl = card.querySelector(".data");
+    cells.forEach(function(c){
+      var d = document.createElement("div");
+      d.className = "cell";
+      var dt = document.createElement("dt"); dt.textContent = c[0];
+      var dd = document.createElement("dd"); dd.textContent = c[1];
+      if(c[2]){
+        var s = document.createElement("small");
+        s.textContent = " " + c[2];
+        dd.appendChild(document.createElement("br"));
+        dd.appendChild(s);
+      }
+      d.appendChild(dt); d.appendChild(dd);
+      dl.appendChild(d);
+    });
+
+    if(r.verdict === "no_traces_detected" || p.upscaled){
+      var cav = document.createElement("div");
+      cav.className = "caveat";
+      var text = [];
+      if(r.verdict === "no_traces_detected"){
+        text.push("OOD risk: weak generator families (GAN/VQDM/ADM) exhibit 29–43% error among confident verdicts[cite: 3].");
+      }
+      if(p.upscaled){
+        text.push("Input was upscaled to 224px (min edge < 224px).");
+      }
+      cav.innerHTML = '<h3>Reliability Note</h3><p>' + text.join(" ") + '</p>';
+      card.appendChild(cav);
+    }
+
+    slot.parentNode.replaceChild(card, slot);
+  }
+})();
+</script>
+</body>
+</html>

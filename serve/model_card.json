@@ -1,0 +1,19 @@
+{
+  "model": "PGC 残差流（阶段 A 单流）",
+  "ckpt": "/content/drive/MyDrive/GenImage_Shards/_ckpt/stageA/best.pt",
+  "residual_op": "trunc-diff",
+  "width": 32,
+  "in_ch": 6,
+  "epoch": 1,
+  "dev_acc_best": 0.9809508564110773,
+  "eval_mode": "T1",
+  "eval_resize": 256,
+  "interp": "bilinear",
+  "preprocess": {
+    "decode": "RGB，丢弃 alpha",
+    "resize": "短边 -> 256 (bilinear)",
+    "crop": "中心 224x224",
+    "dtype": "uint8 NHWC"
+  },
+  "output": "logit；score = sigmoid(logit) = P(fake)"
+}
