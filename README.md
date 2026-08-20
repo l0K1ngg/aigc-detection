@@ -2,6 +2,8 @@
 
 A lightweight, CPU-optimized AIGC image detection service based on high-frequency residual stream extraction. The service detects generation artifacts (e.g., upsampling fingerprints from latent diffusion decoders) using a compact 3-layer CNN packaged into a 0.38 MB ONNX graph, delivering single-digit millisecond inference without requiring GPU infrastructure.
 
+🔗 **Live Demo**: [https://aigc-detection.onrender.com/](https://aigc-detection.onrender.com/)
+
 Full design rationale and decision logs are documented in [`design.md`](design.md).  
 The HTTP API specification is detailed in [`api_contract.md`](api_contract.md).  
 Chinese documentation is available in [`docs/zh/`](docs/zh/).
