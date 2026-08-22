@@ -6,7 +6,6 @@ A lightweight, CPU-optimized AIGC image detection service based on high-frequenc
 
 Full design rationale and decision logs are documented in [`design.md`](design.md).  
 The HTTP API specification is detailed in [`api_contract.md`](api_contract.md).  
-Chinese documentation is available in [`docs/zh/`](docs/zh/).
 
 ---
 
